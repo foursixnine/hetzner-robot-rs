@@ -1,67 +1,57 @@
-use reqwest::Url;
-use reqwest::redirect;
 use reqwest::blocking::Response;
 use reqwest::header::HeaderMap;
-use serde_json;
+use reqwest::redirect;
+use reqwest::Url;
+use serde::{self, Deserialize, Serialize};
 use std::env;
 use std::time::Duration;
+use std::vec::Vec;
 
 static APP_USER_AGENT: &str = concat!(
     env!("CARGO_PKG_NAME"),
     "/",
     env!("CARGO_PKG_VERSION"),
+    // this will set the user agent to the following:
+    // hetzner-robot-rs/0.1.0
 );
 
 // we need to create a struct to hold the client
 struct HetznerClient {
-    api_key: String,
     api_url_base: Url,
     client: reqwest::blocking::Client,
 }
 
-// we need to declare a full struct to represent a zone record
-// the structure of the zone record is as follows:
-// {
-//   "zones": [
-//     {
-//       "id": "string",
-//       "created": "2023-11-20T20:13:21Z",
-//       "modified": "2023-11-20T20:13:21Z",
-//       "legacy_dns_host": "string",
-//       "legacy_ns": [
-//         "string"
-//       ],
-//       "name": "string",
-//       "ns": [
-//         "string"
-//       ],
-//       "owner": "string",
-//       "paused": true,
-//       "permission": "string",
-//       "project": "string",
-//       "registrar": "string",
-//       "status": "verified",
-//       "ttl": 0,
-//       "verified": "2023-11-20T20:13:21Z",
-//       "records_count": 0,
-//       "is_secondary_dns": true,
-//       "txt_verification": {
-//         "name": "string",
-//         "token": "string"
-//       }
-//     }
-//   ],
-//   "meta": {
-//     "pagination": {
-//       "page": 1,
-//       "per_page": 1,
-//       "last_page": 1,
-//       "total_entries": 0
-//     }
-//   }
-// }
-// we can use the following code to generate the struct
-//
+impl HetznerClient {
+    #[allow(dead_code)]
+    fn new(api_url_base: Url) -> Self {
+        Self {
+            api_url_base,
+            client: reqwest::blocking::Client::new(),
+        }
+    }
+}
+
+impl Default for HetznerClient {
+    fn default() -> Self {
+        Self {
+            api_url_base: Url::parse("https://dns.hetzner.com/api/v1/").unwrap(),
+            client: _setup_client(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct VecZoneRecord {
+    zones: Vec<ZoneRecord>,
+}
+
+impl VecZoneRecord {
+    fn new() -> Self {
+        VecZoneRecord { zones: Vec::new() }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct ZoneRecord {
     id: String,
     created: String,
@@ -84,53 +74,13 @@ struct ZoneRecord {
 }
 
 // we need to create a struct to represent the txt_verification field
+#[derive(Debug, Serialize, Deserialize)]
 struct TxtVerification {
     name: String,
     token: String,
 }
 
-// we need to implement the From trait for the TxtVerification struct
-impl From<serde_json::Value> for TxtVerification {
-    fn from(value: serde_json::Value) -> Self {
-        TxtVerification {
-            name: value["name"].as_str().unwrap().to_string(),
-            token: value["token"].as_str().unwrap().to_string(),
-        }
-    }
-}
-// for the time being, we don't need to care too much about the txt_verification field
-// as we are only interested in the zone records
-// for now we can leave the TxtVerification struct as is with it's From implementation
-
-// we need to implement the From trait for the ZoneRecord struct
-// this will allow us to convert the json response from the api into
-// a ZoneRecord struct
-
-impl From<serde_json::Value> for ZoneRecord {
-    fn from(value: serde_json::Value) -> Self { ZoneRecord {
-        id: value["id"].as_str().unwrap().to_string(),
-        created: value["created"].as_str().unwrap().to_string(),
-        modified: value["modified"].as_str().unwrap().to_string(),
-        legacy_dns_host: value["legacy_dns_host"].as_str().unwrap().to_string(),
-        legacy_ns: value["legacy_ns"].as_array().unwrap().to_string(),
-        name: value["name"].as_str().unwrap().to_string(),
-        ns: value["ns"].as_array().unwrap().to_vec(),
-        owner: value["owner"].as_str().unwrap().to_string(),
-        paused: value["paused"].as_bool().unwrap(),
-        permission: value["permission"].as_str().unwrap().to_string(),
-        project: value["project"].as_str().unwrap().to_string(),
-        registrar: value["registrar"].as_str().unwrap().to_string(),
-        status: value["status"].as_str().unwrap().to_string(),
-        ttl: value["ttl"].as_u64().unwrap(),
-        verified: value["verified"].as_str().unwrap().to_string(),
-        records_count: value["records_count"].as_u64().unwrap(),
-        is_secondary_dns: value["is_secondary_dns"].as_bool().unwrap(),
-        txt_verification: TxtVerification::from(value["txt_verification"].clone()),
-    }
-}
-}
-// we need to create a struct to represent the pagination, that we get as a response in the meta field
-// the structure of the pagination is as follows:
+#[derive(Debug, Serialize, Deserialize)]
 struct Pagination {
     page: u64,
     per_page: u64,
@@ -138,59 +88,79 @@ struct Pagination {
     total_entries: u64,
 }
 
-// we need to implement the From trait for the pagination struct
-// this will allow us to convert the json response from the api into
-// a pagination struct
-// the following code was generated by copilot
-impl From<serde_json::Value> for Pagination {
-    fn from(value: serde_json::Value) -> Self {
-        Pagination {
-            page: value["page"].as_u64().unwrap(),
-            per_page: value["per_page"].as_u64().unwrap(),
-            last_page: value["last_page"].as_u64().unwrap(),
-            total_entries: value["total_entries"].as_u64().unwrap(),
-        }
-    }
+#[derive(Debug, Serialize, Deserialize)]
+struct RecordsResponse {
+    meta: Pagination,
+    zones: Vec<ZoneRecord>,
 }
 
 fn main() {
-    
-    let res = query();
+    let client_instance = HetznerClient::default();
 
+    let res = query(client_instance);
     let zones = match res {
         Ok(r) => {
-            let body = r.text().unwrap();
-            let responseObject: serde_json::Value = serde_json::from_str(&body).unwrap();
-            println!("{:?}", &responseObject);
-            responseObject
+            // now that we a response with the zones, we need to extract those zones
+            // and return the responseObject using the vec of ZoneRecord
+
+            // code above needs to be rewritten to use the impl From trait
+            // using the From trait we can convert from serde_json::Value to Vec<ZoneRecord>
+            // we can only do this if r.status().is_success()
+            let mut response_vector = VecZoneRecord::new();
+            match r.status().is_success() {
+                true => {
+                    response_vector = r.json().unwrap();
+                    println!("{:?}", response_vector);
+                    response_vector
+                }
+                false => {
+                    // we need to get the error message from the response
+                    // and check if we're being rate limited
+                    // if we are being rate limited, we need to wait for the rate limit to expire
+                    // and then retry the request
+                    // if we're not being rate limited, we need to print the error message
+                    // and exit the program
+                    let rate_limit_remaining = r.headers().get("RateLimit-Remaining").unwrap();
+                    let rate_limit_reset = r.headers().get("RateLimit-Reset").unwrap();
+                    println!(
+                        "rate_limit_remaining: {:?}, rate_limit_reset: {:?}",
+                        rate_limit_remaining, rate_limit_reset
+                    );
+                    // we need to wait for the rate limit to reset and let the user know
+                    // when the rate limit time is up
+                    if rate_limit_remaining == "0" {
+                        handle_rate_limit(rate_limit_reset);
+                    }
+                    println!("{:?}", r.status());
+                    // we need to return an empty VecZoneRecord
+                    response_vector
+                }
+            }
         }
         Err(e) => {
-           // // we need to add code to process the rate limiting error from
-           // // the api and wait the required time before retrying
-           // let headers = e.headers();
-           // headers.find("RateLimit-Reset").map(|value| {
-           //     let resetTime = value.to_str().unwrap();
-           //     println!("RateLimit-Reset: {}", resetTime);
-           // });
-
-           // headers.find("ratelimit-remaining").map(|value| {
-           //     let remainingTries = value.to_str().unwrap();
-           //     println!("RateLimit-Reset: {}", remainingTries);
-           // });
             println!("{:?}", e);
-            serde_json::Value::Null
-            }
+            panic!("We have an error");
+        }
     };
 
-    processResponseObject(zones);
+    process_response_object(zones);
 }
 
-fn processResponseObject(responseObject: serde_json::Value) {
-    let zones = responseObject["zones"].as_array().unwrap();
+fn handle_rate_limit(rate_limit_reset: &reqwest::header::HeaderValue) {
+    let wait_time = rate_limit_reset.to_str().unwrap().parse().unwrap();
+    println!(
+        "rate limit is 0, waiting {0} seconds for rate limit reset",
+        wait_time
+    );
+    std::thread::sleep(Duration::from_secs(wait_time));
+}
+
+fn process_response_object(response_object: VecZoneRecord) {
+    let zones = response_object.zones;
     for zone in zones {
-        let zoneName = zone["name"].as_str().unwrap();
-        let zoneId = zone["id"].as_str().unwrap();
-        println!("zone_id {}, \tzone_name {}", zoneId, zoneName);
+        let zone_name = zone.name;
+        let zone_id = zone.id;
+        println!("zone_id {}, \tzone_name {}", zone_id, zone_name);
     }
 }
 
@@ -209,7 +179,7 @@ fn processResponseObject(responseObject: serde_json::Value) {
 //}
 
 // this function is used to generate a custom redirect policy for the client
-fn generateRedirectPolicy() -> redirect::Policy {
+fn generate_redirect_policy() -> redirect::Policy {
     redirect::Policy::custom(|attempt| {
         if attempt.previous().len() > 5 {
             let url = attempt.url().to_string();
@@ -221,29 +191,67 @@ fn generateRedirectPolicy() -> redirect::Policy {
             attempt.follow()
         }
     })
-} 
-
-fn query () -> Result<Response, reqwest::Error> {
-    // let's first create an http client so we can make requests to hetzner's api
-    let api_key = env!("HETZNER_API_KEY", "Please set the HETZNER_API_KEY environment variable");
-    let api_url_base = Url::parse("https://dns.hetzner.com/api/v1/").unwrap();
-
-    let customRedirectPolicy = generateRedirectPolicy();
-    let mut headers = HeaderMap::new();
-    headers.insert("Auth-API-Token", api_key.parse().unwrap());
-    headers.insert("ACCEPT", "application/json".parse().unwrap());
-    headers.insert("User-Agent", APP_USER_AGENT.parse().unwrap());
-
-    // use reqwest ClientBuilder to create a client as it allows us to fine tune the client interactions
-    let client = reqwest::blocking::Client::builder()
-        .default_headers(headers) // set the default headers for all requests
-        .redirect(customRedirectPolicy)          // set the max redirects for the client
-        .timeout(Duration::from_secs(10))      // we can also set the timeout for the client
-        .https_only(true)
-        .build()?;
-    // we need to get the client result, as it should be treated as a blocking operation
-    // execute the client call and return the response to the caller
-    let res = client.get(api_url_base.join("zones").unwrap()).send();
-    res
 }
 
+fn query(client: HetznerClient) -> Result<Response, reqwest::Error> {
+    // we need to get the client result, as it should be treated as a blocking operation
+    // execute the client call and return the response to the caller
+    client
+        .client
+        .get(client.api_url_base.join("zones").unwrap())
+        .send()
+}
+
+fn _setup_client() -> reqwest::blocking::Client {
+    let custom_redirect_policy = generate_redirect_policy();
+    let mut headers = HeaderMap::new();
+    headers.insert("Auth-API-Token", _get_api_key().parse().unwrap());
+    headers.insert("ACCEPT", "application/json".parse().unwrap());
+    headers.insert("User-Agent", APP_USER_AGENT.parse().unwrap());
+    let client = reqwest::blocking::Client::builder()
+        .default_headers(headers) // set the default headers for all requests
+        .redirect(custom_redirect_policy) // set the max redirects for the client
+        .timeout(Duration::from_secs(10)) // we can also set the timeout for the client
+        .https_only(true)
+        .build();
+    match client {
+        Ok(c) => c,
+        Err(e) => {
+            println!("{:?}", e);
+            panic!("We have an error");
+        }
+    }
+}
+
+fn _get_api_key() -> String {
+    match std::env::var("HETZNER_API_KEY") {
+        Ok(key) => key,
+        Err(_) => {
+            panic!("Please set the HETZNER_API_KEY environment variable");
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_api_key() {
+        // Set up
+        std::env::set_var("HETZNER_API_KEY", "test_api_key");
+        // Execute
+        let api_key = _get_api_key();
+
+        // Verify
+        assert_eq!(api_key, "test_api_key");
+
+        // verify that an error is returned if the HETZNER_API_KEY
+        // environment variable is not set
+        std::env::remove_var("HETZNER_API_KEY");
+        assert!(std::panic::catch_unwind(|| {
+            let _ = _get_api_key();
+        })
+        .is_err());
+    }
+}
