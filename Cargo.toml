@@ -2,6 +2,15 @@
 name = "hetzner-robot-rs"
 version = "0.0.1"
 edition = "2021"
+description = "A rust application to interact with Hetzner's Robot interface."
+homepage = "https://foursixnine.io/projects/hetzner-robot-rs/"
+repository = "https://github.com/foursixnine/hetzner-robot-rs"
+keywords = ["dns", "hetzner"]
+categories = ["command-line-utilities"]
+license = "GPL-3.0-only"
+
+[badges]
+maintenance = { status = "experimental,actively-developed" }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
