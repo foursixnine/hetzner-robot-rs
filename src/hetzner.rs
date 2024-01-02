@@ -158,20 +158,17 @@ mod tests {
 
     #[test]
     fn test_get_api_key() {
-        // Set up
         std::env::set_var("HETZNER_API_KEY", "test_api_key");
-        // Execute
         let api_key = _get_api_key();
-
-        // Verify
         assert_eq!(api_key, "test_api_key");
 
-        // verify that an error is returned if the HETZNER_API_KEY
-        // environment variable is not set
+    }
+
+    #[test]
+    #[should_panic(expected = "Please set the HETZNER_API_KEY environment variable")]
+    fn test_empty_api_key() {
+        // we need to delete the HETZNER_API_KEY environment variable
         std::env::remove_var("HETZNER_API_KEY");
-        assert!(std::panic::catch_unwind(|| {
-            let _ = _get_api_key();
-        })
-        .is_err());
+        let _api_key = _get_api_key();
     }
 }
