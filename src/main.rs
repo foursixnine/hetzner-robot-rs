@@ -42,10 +42,10 @@ fn display_zones(response_object: VecZoneRecord) {
         let zone_name = zone.name;
         let zone_id = zone.id;
         // we need to wrap the arguments to write_all in a byte string
-        stdout.write(
+        stdout.write_all(
             format!("Zone name: {}, Zone ID: {}\n", zone_name, zone_id).as_bytes(),
         )
-        .expect(format!("failed to write zone_id {} to stdout", zone_id).as_str());
+        .unwrap_or_else(|_| panic!("failed to write zone_id {} to stdout", zone_id));
     }
     stdout.write_all(b"\n").expect("failed to write to stdout");
 }
