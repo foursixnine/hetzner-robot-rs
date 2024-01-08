@@ -1,9 +1,9 @@
 use crate::hetzner::*;
-use std::env;
-use std::time::Duration;
 use reqwest::header::HeaderMap;
 use reqwest::redirect;
 use reqwest::Url;
+use std::env;
+use std::time::Duration;
 
 // Now that we have a zone id we can get the records for that zone
 // https://dns.hetzner.com/api/v1/records?zone_id=123456
@@ -106,7 +106,6 @@ mod tests {
         std::env::set_var("HETZNER_API_KEY", "test_api_key");
         let api_key = _get_api_key();
         assert_eq!(api_key, "test_api_key");
-
     }
 
     #[test]

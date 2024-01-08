@@ -5,7 +5,6 @@ use hetzner::*;
 use std::io::Write;
 
 fn main() {
-
     if cfg!(debug_assertions) {
         // TODO: add a command line argument parser
         // main should parse cli arguments using getopts
@@ -42,10 +41,9 @@ fn display_zones(response_object: VecZoneRecord) {
         let zone_name = zone.name;
         let zone_id = zone.id;
         // we need to wrap the arguments to write_all in a byte string
-        stdout.write_all(
-            format!("Zone name: {}, Zone ID: {}\n", zone_name, zone_id).as_bytes(),
-        )
-        .unwrap_or_else(|_| panic!("failed to write zone_id {} to stdout", zone_id));
+        stdout
+            .write_all(format!("Zone name: {}, Zone ID: {}\n", zone_name, zone_id).as_bytes())
+            .unwrap_or_else(|_| panic!("failed to write zone_id {} to stdout", zone_id));
     }
     stdout.write_all(b"\n").expect("failed to write to stdout");
 }
