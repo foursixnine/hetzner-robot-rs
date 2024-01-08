@@ -1,4 +1,5 @@
 use serde::{self, Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VecZoneRecord {
@@ -54,3 +55,68 @@ pub struct RecordsResponse {
     pub zones: Vec<ZoneRecord>,
 }
 
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, Serialize, Deserialize)]
+pub enum RecordTypes {
+    A,
+    AAAA,
+    NS,
+    MX,
+    CNAME,
+    RP,
+    TXT,
+    SOA,
+    HINFO,
+    SRV,
+    DANE,
+    TLSA,
+    DS,
+    CAA,
+}
+
+// Implament Display for RecordTypes so we can print the record type
+// and pass it to the API when needed
+// https://doc.rust-lang.org/std/fmt/trait.Display.html
+// https://kerkour.com/rust-enum-to-string
+impl fmt::Display for RecordTypes {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            RecordTypes::A => write!(f, "A"),
+            RecordTypes::AAAA => write!(f, "AAAA"),
+            RecordTypes::NS => write!(f, "NS"),
+            RecordTypes::MX => write!(f, "MX"),
+            RecordTypes::CNAME => write!(f, "CNAME"),
+            RecordTypes::RP => write!(f, "RP"),
+            RecordTypes::TXT => write!(f, "TXT"),
+            RecordTypes::SOA => write!(f, "SOA"),
+            RecordTypes::HINFO => write!(f, "HINFO"),
+            RecordTypes::SRV => write!(f, "SRV"),
+            RecordTypes::DANE => write!(f, "DANE"),
+            RecordTypes::TLSA => write!(f, "TLSA"),
+            RecordTypes::DS => write!(f, "DS"),
+            RecordTypes::CAA => write!(f, "CAA"),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RecordType {
+    pub record_type: RecordTypes,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Record {
+    pub zone_id: String,
+    pub name: String,
+    pub record_type: RecordType,
+    pub value: String,
+    pub ttl: u64,
+    pub created: String,
+    pub modified: String,
+    pub id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RecordResponse {
+    pub record: Vec<Record>,
+}
