@@ -115,7 +115,6 @@ mod tests {
     #[should_panic(expected = "Please set the HETZNER_API_KEY environment variable")]
     fn test_empty_api_key() {
         // we need to delete the HETZNER_API_KEY environment variable
-        std::env::remove_var("HETZNER_API_KEY");
         let _api_key = _get_api_key();
     }
 }
@@ -158,17 +157,27 @@ pub fn query_zones(client: HetznerClient) -> VecZoneRecord {
                     // if we're not being rate limited, we need to print the error message
                     // and exit the program
                     let rate_limit_remaining = r.headers().get("RateLimit-Remaining").unwrap();
-                    let rate_limit_reset = r.headers().get("RateLimit-Reset").unwrap();
-                    println!(
-                        "rate_limit_remaining: {:?}, rate_limit_reset: {:?}",
-                        rate_limit_remaining, rate_limit_reset
-                    );
-                    // we need to wait for the rate limit to reset and let the user know
-                    // when the rate limit time is up
                     if rate_limit_remaining == "0" {
-                        handle_rate_limit(rate_limit_reset);
+                        let rate_limit_reset = r.headers().get("RateLimit-Reset").unwrap();
+                        println!(
+                            "rate_limit_remaining: {:?}, rate_limit_reset: {:?}",
+                            rate_limit_remaining, rate_limit_reset
+                        );
+                        // we need to wait for the rate limit to reset and let the user know
+                        // when the rate limit time is up
+                        if wait_for_rate_limit_reset {
+                            handle_rate_limit(rate_limit_reset);
+                            println!("rate limit reset, try again");
+                        }
                     }
-                    println!("{:?}", r.status());
+                    println!(
+                        "There has been an error processing the request {:?}",
+                        r.status()
+                    );
+                    if cfg!(debug_assertions) {
+                        println!("{:?}", r.headers());
+                        println!("{:?}", r.text());
+                    }
                     // we need to return an empty VecZoneRecord
                     response_vector
                 }
