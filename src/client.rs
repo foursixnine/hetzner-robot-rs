@@ -145,7 +145,7 @@ pub fn query_zones(client: HetznerClient) -> VecZoneRecord {
                     response_vector = r.json().expect("failed to deserialize from API");
                     // we need to print the response vector only if the debug flag is set
                     if cfg!(debug_assertions) {
-                        println!("{:?}", response_vector);
+                        println!("{:#?}\n", response_vector);
                     }
                     response_vector
                 }
