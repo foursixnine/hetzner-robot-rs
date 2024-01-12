@@ -2,17 +2,18 @@ mod client;
 mod hetzner;
 use client::*;
 use hetzner::*;
+use std::env;
 use std::io::Write;
 
 fn main() {
+    let arguments: Vec<String> = env::args().collect();
     if cfg!(debug_assertions) {
         // TODO: add a command line argument parser
         // main should parse cli arguments using getopts
         // or its rust equivalent
+        // The popular crate for this is clap
 
-        use std::env;
         // TODO: replace dbg with debug! from log crate
-        let arguments: Vec<String> = env::args().collect();
         dbg!("args: {:?}", arguments.clone());
 
         // Prints each argument on a separate line
@@ -21,7 +22,10 @@ fn main() {
         });
     }
 
-    let client_instance = HetznerClient::default();
+    let client_instance = client::HetznerClient {
+        arguments: arguments.clone(),
+        ..Default::default()
+    };
     // this could be changed in the future when multiple commands are supported
     // it could be abuilder pattern like:
     // let client_instance = HetznerClient::default().with_command("zones");

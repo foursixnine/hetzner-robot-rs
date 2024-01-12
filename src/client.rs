@@ -31,6 +31,7 @@ static APP_USER_AGENT: &str = concat!(
 pub struct HetznerClient {
     pub api_url_base: Url,
     pub client: reqwest::blocking::Client,
+    pub arguments: Vec<String>,
 }
 
 impl HetznerClient {
@@ -39,6 +40,7 @@ impl HetznerClient {
         Self {
             api_url_base,
             client: reqwest::blocking::Client::new(),
+            arguments: Vec::new(),
         }
     }
 }
@@ -48,6 +50,7 @@ impl Default for HetznerClient {
         Self {
             api_url_base: Url::parse("https://dns.hetzner.com/api/v1/").unwrap(),
             client: _setup_client(),
+            arguments: Vec::new(),
         }
     }
 }
@@ -124,6 +127,10 @@ pub fn query_zones(client: HetznerClient) -> VecZoneRecord {
         .client
         .get(client.api_url_base.join("zones").unwrap())
         .send();
+
+    let wait_for_rate_limit_reset = client
+        .arguments
+        .contains(&String::from("--wait-for-completion"));
 
     let zones = match res {
         Ok(r) => {
