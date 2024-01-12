@@ -1,24 +1,29 @@
-.PHONY: clean run test publish update
-all: $(TARGET)
+all: clean format build  test
 
-update: $(TARGET)
+build: $(SRC)
+	cargo build
+
+update:
 	cargo update
 
-$(TARGET): $(SRC)
-	cargo build
+format:
+	cargo fmt
+	cargo clippy
 
 clean:
 	cargo clean
 
-run: $(TARGET)
-	cargo run
-
-test: $(TARGET)
+test: build
 	cargo test
 
-publish: $(TARGET)
+test-release: release
+	cargo test --release
+
+publish: clean format update release
 	cargo publish
 
-release: $(TARGET)
+release:
 	cargo build --release
 
+run:
+	cargo run
