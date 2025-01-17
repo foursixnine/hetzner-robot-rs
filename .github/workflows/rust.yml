@@ -1,5 +1,4 @@
 name: Rust
-
 on:
   push:
     branches: [ "master" ]
@@ -11,12 +10,33 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Build
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: hetzner-robot-artifact
+        path: target/debug/hetzner-robot
+  publish_debug:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: hetzner-robot-artifact
+          path: hetzner-robot-dns
+      - run: |
+          ls -lahR hetzner-robot-dns/ 
+          gh release create v0.1.0 --generate-notes
+          gh release upload v0.1.0 hetzner-robot-dns/hetzner-robot#hetzner-robot-dns-rs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        name: Creates a release in GitHub and uploads attachments
